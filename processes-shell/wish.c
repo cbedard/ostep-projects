@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <assert.h>
 
 char *get_line() {
     char *line = NULL;
@@ -57,6 +60,32 @@ char** str_split(char* a_str, const char a_delim) {
     return result;
 }
 
+int execute(char** args) {
+    char* path = "/usr/bin";
+
+    pid_t pid, wpid;
+    int status;
+
+    pid = fork();
+    if (pid == 0) {
+        // Child process
+        if (execv(path, args) == -1) {
+            perror("wish");
+        }
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        // Error forking
+        perror("wish");
+    } else {
+        // Parent process
+        do {
+            wpid = waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+
+    return 1;
+}
+
 int main(int argc, char *argv[]) {
     char *line;
     char **args;
@@ -65,9 +94,9 @@ int main(int argc, char *argv[]) {
     do {
         printf("wish> ");
         line = get_line();
-        args = str_split(line, " ");
+        args = str_split(line, ' ');
         
-        //status = execute(args);
+        status = execute(args);
 
         printf("You entered: \"%s\"", line); 
         free(line);
