@@ -7,14 +7,40 @@
 #include <sys/wait.h>
 #include <assert.h>
 
-char *get_line() {
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t lineSize = 0;
-    
-    lineSize = getline(&line, &len, stdin);
-    
-    return line;
+char* get_line() {
+  int bufsize = 1024;
+  int position = 0;
+  char *buffer = malloc(sizeof(char) * bufsize);
+  int c;
+
+  if (!buffer) {
+    fprintf(stderr, "lsh: allocation error\n");
+    exit(EXIT_FAILURE);
+  }
+
+  while (1) {
+    // Read a character
+    c = getchar();
+
+    // If we hit EOF, replace it with a null character and return.
+    if (c == EOF || c == '\n') {
+      buffer[position] = '\0';
+      return buffer;
+    } else {
+      buffer[position] = c;
+    }
+    position++;
+
+    // If we have exceeded the buffer, reallocate.
+    if (position >= bufsize) {
+      bufsize += 1024;
+      buffer = realloc(buffer, bufsize);
+      if (!buffer) {
+        fprintf(stderr, "lsh: allocation error\n");
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
 }
 
 char** str_split(char* a_str, const char a_delim) {
@@ -56,12 +82,13 @@ char** str_split(char* a_str, const char a_delim) {
         assert(idx == count - 1);
         *(result + idx) = 0;
     }
-
     return result;
 }
 
 int execute(char** args) {
-    char* path = "/usr/bin";
+    char path[256];
+    strcpy(path, "/bin/");
+    strcat(path, args[0]);
 
     pid_t pid, wpid;
     int status;
@@ -69,7 +96,7 @@ int execute(char** args) {
     pid = fork();
     if (pid == 0) {
         // Child process
-        if (execv(path, args) == -1) {
+        if (execv(path, args) < 0) {
             perror("wish");
         }
         exit(EXIT_FAILURE);
@@ -98,9 +125,8 @@ int main(int argc, char *argv[]) {
         
         status = execute(args);
 
-        printf("You entered: \"%s\"", line); 
         free(line);
-        //free(args);
+        free(args);
     } while (status);
 
    exit(0);
