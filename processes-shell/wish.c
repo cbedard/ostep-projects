@@ -7,6 +7,39 @@
 #include <sys/wait.h>
 #include <assert.h>
 
+char* path = "/bin";
+
+int cmd_cd(char** args) {
+    if (args[1] == NULL) {
+        fprintf(stderr, "lsh: expected argument to \"cd\"\n");
+    } else {
+        if (chdir(args[1]) != 0) {
+            perror("lsh");
+        }
+    }
+    return 1;
+}
+
+int cmd_path(char** args) {
+    path = args[1];
+}
+
+int cmd_exit() {
+    return 0;
+}
+
+char *builtin_str[] = {
+  "cd",
+  "path",
+  "exit"
+};
+
+int (*builtin_cmd[]) (char **) = {
+  &cmd_cd,
+  &cmd_path,
+  &cmd_exit
+};
+
 char* get_line() {
   int bufsize = 1024;
   int position = 0;
@@ -86,9 +119,10 @@ char** str_split(char* a_str, const char a_delim) {
 }
 
 int execute(char** args) {
-    char path[256];
-    strcpy(path, "/bin/");
-    strcat(path, args[0]);
+    char exec_path[256];
+    strcpy(exec_path, path);
+    strcat(exec_path, "/");
+    strcat(exec_path, args[0]);
 
     pid_t pid, wpid;
     int status;
@@ -96,7 +130,7 @@ int execute(char** args) {
     pid = fork();
     if (pid == 0) {
         // Child process
-        if (execv(path, args) < 0) {
+        if (execv(exec_path, args) < 0) {
             perror("wish");
         }
         exit(EXIT_FAILURE);
@@ -113,6 +147,20 @@ int execute(char** args) {
     return 1;
 }
 
+int command(char ** args) {
+    if (args[0] == NULL) {
+        return 1;
+    }
+    
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(builtin_str[i], args[0]) == 0) {
+            return (*builtin_cmd[i])(args);
+        }
+    }
+        
+    return execute(args);
+}
+
 int main(int argc, char *argv[]) {
     char *line;
     char **args;
@@ -123,7 +171,7 @@ int main(int argc, char *argv[]) {
         line = get_line();
         args = str_split(line, ' ');
         
-        status = execute(args);
+        status = command(args);
 
         free(line);
         free(args);
