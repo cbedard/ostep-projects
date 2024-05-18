@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include <assert.h>
 
-char* path = "/bin";
+char* path[10] = {"/bin"};
 
 int cmd_cd(char** args) {
     if (args[1] == NULL) {
@@ -21,7 +21,15 @@ int cmd_cd(char** args) {
 }
 
 int cmd_path(char** args) {
-    path = args[1];
+    int i = 1;
+    while (args[i] != NULL) {
+        path[i-1] = args[i];
+        i++;
+    }
+    while (i <= 10) {
+        path[i-1] = NULL;
+        i++;
+    }
 }
 
 int cmd_exit() {
@@ -97,8 +105,7 @@ char** str_split(char* a_str, const char a_delim) {
     // Add space for trailing token.
     count += last_comma < (a_str + strlen(a_str) - 1);
 
-    /* Add space for terminating null string so caller
-       knows where the list of returned strings ends. */
+    // Add space for terminating null string
     count++;
 
     result = malloc(sizeof(char*) * count);
@@ -119,20 +126,28 @@ char** str_split(char* a_str, const char a_delim) {
 }
 
 int execute(char** args) {
-    char exec_path[256];
-    strcpy(exec_path, path);
-    strcat(exec_path, "/");
-    strcat(exec_path, args[0]);
-
     pid_t pid, wpid;
     int status;
 
     pid = fork();
     if (pid == 0) {
         // Child process
-        if (execv(exec_path, args) < 0) {
-            perror("wish");
-        }
+        int i = 0;
+        do {
+            char exec_path[256];
+            strcpy(exec_path, path[i]);
+            strcat(exec_path, "/");
+            strcat(exec_path, args[0]);
+
+            status = execv(exec_path, args);
+
+            if (status < 0) {
+                printf("FAILURE ON EXECV");
+                perror("wish");
+            }
+            i++;
+        } while (status < 0 && path[i] != NULL);
+        
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
         // Error forking
